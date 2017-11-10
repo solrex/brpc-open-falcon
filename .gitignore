@@ -24,6 +24,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+brpc-open-falcon.yml
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

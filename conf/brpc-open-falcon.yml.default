@@ -1,0 +1,11 @@
+falcon:
+    push_url: http://127.0.0.1:6071/v1/push
+
+# original_bvar_name:metric_name
+gauge_bvars: ['rpc_server_8888_echo_service_echo_latency:API_echo_latency',
+              'rpc_server_8888_echo_service_echo_latency_50:API_echo_latency_50'
+counter_bvars: ['rpc_server_8888_echo_service_echo_count:API_echo_count']
+
+# Brpc Servers
+brpc-servers:
+    - {endpoint: "localhost", url: "http://127.0.0.1:8888/vars", tags: ""}
