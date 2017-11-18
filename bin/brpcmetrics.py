@@ -6,7 +6,6 @@ import time
 from datetime import datetime
 import requests
 import yaml
-import re
 
 class BrpcMetrics(threading.Thread):
     def __init__(self, falcon_url, endpoint, url, tags = '', falcon_step = 60, daemon = False):
@@ -27,15 +26,27 @@ class BrpcMetrics(threading.Thread):
         super(BrpcMetrics, self).__init__(None, name=endpoint)
         self.setDaemon(daemon)
 
+    def new_metric(self, metric, value, type = 'GAUGE'):
+        return {
+            'counterType': type,
+            'metric': metric,
+            'endpoint': self.endpoint,
+            'timestamp': self.timestamp,
+            'step': self.falcon_step,
+            'tags': self.tags,
+            'value': value
+        }
+
     def run(self):
         falcon_metrics = []
         # Statistics
         try:
-            timestamp = int(time.time())
+            self.timestamp = int(time.time())
             # brpc returns plain text for curl header
             headers = {'user-agent': 'curl/7.47.0 brpc-open-falcon/0.1'}
             response = requests.get(self.url, headers=headers)
             if response.status_code != 200:
+                print datetime.now(), "ERROR: [%s] BRPC http error" % self.endpoint
                 return
             bvars = yaml.load(response.text)
             # Original metrics
@@ -46,15 +57,7 @@ class BrpcMetrics(threading.Thread):
                     metric = 'brpc.' + bvar_abbr[1]
                 else:
                     metric = 'brpc.' + keyword
-                falcon_metric = {
-                    'counterType': 'GAUGE',
-                    'metric': metric,
-                    'endpoint': self.endpoint,
-                    'timestamp': timestamp,
-                    'step': self.falcon_step,
-                    'tags': self.tags,
-                    'value': bvars[keyword]
-                }
+                falcon_metric = self.new_metric(metric, bvars[keyword])
                 falcon_metrics.append(falcon_metric)
             for keyword in self.counter_keywords:
                 bvar_abbr = keyword.split(':')
@@ -63,15 +66,7 @@ class BrpcMetrics(threading.Thread):
                     metric = 'brpc.' + bvar_abbr[1]
                 else:
                     metric = 'brpc.' + keyword
-                falcon_metric = {
-                    'counterType': 'COUNTER',
-                    'metric': metric,
-                    'endpoint': self.endpoint,
-                    'timestamp': timestamp,
-                    'step': self.falcon_step,
-                    'tags': self.tags,
-                    'value': bvars[keyword]
-                }
+                falcon_metric = self.new_metric(metric, bvars[keyword], type='COUNTER')
                 falcon_metrics.append(falcon_metric)
             #print json.dumps(falcon_metrics)
             req = requests.post(self.falcon_url, data=json.dumps(falcon_metrics))
