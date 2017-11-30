@@ -1,5 +1,6 @@
 falcon:
     push_url: http://127.0.0.1:6071/v1/push
+    step: 60
 
 # original_bvar_name:metric_name
 gauge_bvars: ['rpc_server_8888_echo_service_echo_latency:API_echo_latency',

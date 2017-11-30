@@ -8,12 +8,14 @@ import requests
 import yaml
 
 class BrpcMetrics(threading.Thread):
-    def __init__(self, falcon_url, endpoint, url, tags = '', falcon_step = 60, daemon = False):
-        self.falcon_url = falcon_url
-        self.falcon_step = falcon_step
-        self.url = url
-        self.endpoint = endpoint
-        self.tags = tags
+    def __init__(self, falcon_conf, brpc_conf):
+        self.falcon_conf = falcon_conf
+        self.brpc_conf = brpc_conf
+        # Assign default conf
+        if 'test_run' not in self.falcon_conf:
+            self.falcon_conf['test_run'] = False
+        if 'step' not in self.falcon_conf:
+            self.falcon_conf['step'] = 60
 
         self.gauge_keywords = ['bthread_count', 'bthread_worker_count', 'bthread_worker_usage',
                                'process_cpu_usage', 'process_fd_count',
@@ -23,17 +25,17 @@ class BrpcMetrics(threading.Thread):
                                'rpc_socket_count', 'system_loadavg_1m',]
         self.counter_keywords = []
 
-        super(BrpcMetrics, self).__init__(None, name=endpoint)
-        self.setDaemon(daemon)
+        super(BrpcMetrics, self).__init__(None, name=self.brpc_conf['endpoint'])
+        self.setDaemon(False)
 
     def new_metric(self, metric, value, type = 'GAUGE'):
         return {
             'counterType': type,
             'metric': metric,
-            'endpoint': self.endpoint,
+            'endpoint': self.brpc_conf['endpoint'],
             'timestamp': self.timestamp,
-            'step': self.falcon_step,
-            'tags': self.tags,
+            'step': self.falcon_conf['step'],
+            'tags': self.brpc_conf['tags'],
             'value': value
         }
 
@@ -44,9 +46,9 @@ class BrpcMetrics(threading.Thread):
             self.timestamp = int(time.time())
             # brpc returns plain text for curl header
             headers = {'user-agent': 'curl/7.47.0 brpc-open-falcon/0.1'}
-            response = requests.get(self.url, headers=headers)
+            response = requests.get(self.brpc_conf['url'], headers=headers)
             if response.status_code != 200:
-                print datetime.now(), "ERROR: [%s] BRPC http error" % self.endpoint
+                print datetime.now(), "ERROR: [%s] BRPC http error" % self.brpc_conf['endpoint']
                 return
             bvars = yaml.load(response.text)
             # Original metrics
@@ -68,9 +70,10 @@ class BrpcMetrics(threading.Thread):
                     metric = 'brpc.' + keyword
                 falcon_metric = self.new_metric(metric, bvars[keyword], type='COUNTER')
                 falcon_metrics.append(falcon_metric)
-            #print json.dumps(falcon_metrics)
-            req = requests.post(self.falcon_url, data=json.dumps(falcon_metrics))
-            print datetime.now(), "INFO: [%s]" % self.endpoint, "[%s]" % self.falcon_url, req.text
+            if self.falcon_conf['test_run']:
+                print json.dumps(falcon_metrics)
+            else:
+                req = requests.post(self.falcon_conf['push_url'], data=json.dumps(falcon_metrics))
+                print datetime.now(), "INFO: [%s]" % self.brpc_conf['endpoint'], "[%s]" % self.falcon_conf['push_url'], req.text
         except Exception as e:
-            print datetime.now(), "ERROR: [%s]" % self.endpoint, e
-            return
+            print datetime.now(), "ERROR: [%s]" % self.brpc_conf['endpoint'], e.message
