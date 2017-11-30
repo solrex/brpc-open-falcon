@@ -76,4 +76,7 @@ class BrpcMetrics(threading.Thread):
                 req = requests.post(self.falcon_conf['push_url'], data=json.dumps(falcon_metrics))
                 print datetime.now(), "INFO: [%s]" % self.brpc_conf['endpoint'], "[%s]" % self.falcon_conf['push_url'], req.text
         except Exception as e:
-            print datetime.now(), "ERROR: [%s]" % self.brpc_conf['endpoint'], e.message
+            if self.falcon_conf['test_run']:
+                raise
+            else:
+                print datetime.now(), "ERROR: [%s]" % self.brpc_conf['endpoint'], e.message
